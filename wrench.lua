@@ -669,7 +669,7 @@ local function search_mail(what)
    adb_event"key back sleep .5 adb-tap 218 343 sleep .2 key scroll_lock"
 end
 
-local function get_coffee(what)
+local function order_coffee(what)
    for i = 1, 5 do
       if social_need_confirm and not yes_or_no_p("Will now open the Wechat App and goto it's home page") then
          return
@@ -684,7 +684,7 @@ local function get_coffee(what)
          return
       end
 
-      adb_event"adb-tap 927 1830 sleep .2"
+      adb_event"sleep .2 adb-tap 927 1830 sleep .2"
 
       if social_need_confirm and not yes_or_no_p("Next, click the “My Favorites” button") then
          return
@@ -748,14 +748,14 @@ weixin_open_homepage = function()
    adb_am("am start -n " .. weixinLauncherActivity)
    wait_top_activity_match("com.tencent.mm/")
    for i = 1, 20 do
-      sleep(.1)
+      sleep(.2)
       log("touch the search button " .. i)
 
       adb_event"adb-tap 801 132"
       local waiting_search = true
       local top_window
       for i_search = 1, 4 do
-         sleep(.1)
+         sleep(.2)
          top_window = adb_top_window()
          if top_window == weixinSearchActivity then
             log("exit from search by key back " .. i_search)
@@ -1504,6 +1504,10 @@ file_exists = function(name)
    end
 end
 
+local function post_text(text)
+   return t1_post(text)
+end
+
 t1_post = function(text) -- use weixin
    local window = adb_focused_window()
    debug("sharing text: %s for window: %s", text, window)
@@ -2089,6 +2093,9 @@ end
 
 local function t1_follow_me()
    check_phone()
+   if true then
+      return
+   end
    -- http://weibo.com/u/1611427581 (baohaojun)
    -- http://weibo.com/u/1809968333 (beagrep)
    adb_am("am start sinaweibo://userinfo?uid=1611427581")
@@ -2380,7 +2387,7 @@ t1_call = function(number)
       elseif where == "dd" then
          t1_find_dingding_contact(who)
       elseif where == "coffee" then
-         get_coffee(who)
+         order_coffee(who)
       elseif where == "mail" then
          search_mail(who)
       else
@@ -2439,6 +2446,13 @@ end
 
 local function t1_spread_it()
    check_phone()
+   if true then
+      yes_or_no_p([[Wrench is open source. For more details, visit
+
+    https://github.com/SmartisanTech/Wrench]])
+         return
+   end
+
    -- http://weibo.com/1611427581/Bviui9tzF
    -- http://weibo.com/1611427581/BvnNk2PwH?from=page_1005051611427581_profile&wvr=6&mod=weibotime&type=comment
    -- http://m.weibo.cn/1809968333/3774599487375417
@@ -2505,7 +2519,7 @@ M.t1_find_qq_contact = t1_find_qq_contact
 M.t1_share_to_qq = t1_share_to_qq
 M.weixin_find_friend = weixin_find_friend
 M.qq_open_homepage = qq_open_homepage
-M.get_coffee = get_coffee
+M.order_coffee = order_coffee
 
 local function be_quiet()
    social_need_confirm = false
@@ -2517,6 +2531,7 @@ end
 
 M.be_verbose = be_verbose
 M.be_quiet = be_quiet
+M.post_text = post_text
 
 local function do_it()
    if arg and type(arg) == 'table' and string.find(arg[0], "wrench.lua") then
