@@ -18,12 +18,16 @@ import android.service.notification.NotificationListenerService.*;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 import android.widget.Toast;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.Wrench.Input;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.util.concurrent.ExecutionException;
 import java.util.HashMap;
 import java.util.Set;
 import org.json.JSONException;
@@ -33,6 +37,13 @@ public class WrenchNotificationHelper extends NotificationListenerService {
     private Handler mHandler;
     private static final int gotCommandFromWrench = 1;
     private static final int gotNewNotification = 2;
+
+    LoadingCache<String, PendingIntent> mNotificationCache =
+        CacheBuilder.newBuilder().maximumSize(10000).build(new CacheLoader<String, PendingIntent>() {
+                public PendingIntent load(String key) {
+                    return null;
+                }
+            });
 
     private HashMap<LocalSocket, Integer> mSocketMap = new HashMap<LocalSocket, Integer>();
 
@@ -155,35 +166,31 @@ public class WrenchNotificationHelper extends NotificationListenerService {
 
         StatusBarNotification[] notifications = getActiveNotifications(new String[] {key});
         Log.e("bhj", String.format("%s:%d: notifications: %d, key %s", "WrenchNotificationHelper.java", 51, notifications.length, key));
-        for (StatusBarNotification sbn : notifications) {
-            Notification n = sbn.getNotification();
-            PendingIntent i = n.contentIntent;
-            if (i != null) {
-                try {
-                    Log.e("bhj", String.format("%s:%d: can send intent", "WrenchNotificationHelper.java", 93));
-                    i.send();
-                    break;
-                } catch (CanceledException e) {
-                    Log.e("bhj", String.format("%s:%d: ", "WrenchNotificationHelper.java", 64), e);
-                }
 
-            } else {
-                if (n.actions == null) {
-                    Log.e("bhj", String.format("%s:%d: has no action ", "WrenchNotificationHelper.java", 53));
-                    continue;
-                }
-                for (Notification.Action action : n.actions) {
-                    PendingIntent i2 = action.actionIntent;
-                    if (i2 != null) {
-                        try {
-                            i2.send();
-                        } catch (CanceledException e) {
-                            Log.e("bhj", String.format("%s:%d: ", "WrenchNotificationHelper.java", 57), e);
-                        }
+        PendingIntent i = null;
+        if (notifications.length >= 1) {
+            Notification n = notifications[0].getNotification();
+            i = n.contentIntent;
+        }
 
-                    }
-                }
+        if (i == null) {
+            try {
+                i = mNotificationCache.get(key);
+            } catch (ExecutionException eGet) {
+                Log.e("bhj", String.format("%s:%d: ", "WrenchNotificationHelper.java", 175), eGet);
             }
+
+        }
+        if (i != null) {
+            try {
+                Log.e("bhj", String.format("%s:%d: can send intent", "WrenchNotificationHelper.java", 93));
+                i.send();
+            } catch (CanceledException e) {
+                Log.e("bhj", String.format("%s:%d: ", "WrenchNotificationHelper.java", 64), e);
+            }
+
+        } else {
+            Log.e("bhj", String.format("%s:%d: no intent for calling", "WrenchNotificationHelper.java", 181));
         }
     }
 
@@ -370,7 +377,7 @@ public class WrenchNotificationHelper extends NotificationListenerService {
                                                     payload.putInt("sock", getSocketInt (sockParam));
                                                     msg.setData(payload);
                                                     mHandler.sendMessage(msg);
-                                                }                                            
+                                                }
                                             } catch (IOException eWhile) {
                                                 Log.e("bhj", String.format("%s:%d: ", "WrenchNotificationHelper.java", 352), eWhile);
                                             } finally {
@@ -411,6 +418,9 @@ public class WrenchNotificationHelper extends NotificationListenerService {
         msg.what = gotNewNotification;
         msg.setData(extra);
         mHandler.sendMessage(msg);
+        PendingIntent intent = sbn.getNotification().contentIntent;
+        if (intent != null)
+            mNotificationCache.put(sbn.getKey(), intent);
     }
 
     @Override
